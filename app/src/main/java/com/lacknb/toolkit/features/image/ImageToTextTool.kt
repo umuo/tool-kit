@@ -154,8 +154,9 @@ class ImageToTextTool : Tool {
                     withContext(Dispatchers.Default) {
                         for (i in selectedBitmaps.indices) {
                             scanningProgressPage = i + 1
-                            val bitmap = selectedBitmaps[i]
-                            val image = InputImage.fromBitmap(bitmap, 0)
+                            val originalBitmap = selectedBitmaps[i]
+                            val enhancedBitmap = enhanceBitmapForOCR(originalBitmap)
+                            val image = InputImage.fromBitmap(enhancedBitmap, 0)
                             
                             try {
                                 val visionText = Tasks.await(recognizer.process(image))
@@ -814,5 +815,35 @@ class ImageToTextTool : Tool {
             y += 45f
         }
         return bitmap
+    }
+
+    private fun enhanceBitmapForOCR(src: Bitmap): Bitmap {
+        // Create a mutable copy in ARGB_8888 if it's not already
+        val dest = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(dest)
+        
+        val colorMatrix = android.graphics.ColorMatrix()
+        // 1. Grayscale
+        colorMatrix.setSaturation(0f)
+        
+        // 2. High Contrast and Brightness adjustment to eliminate faint backgrounds
+        val contrast = 2.0f // Double the contrast
+        val brightness = -20f // Slightly reduce brightness to make blacks darker
+        
+        val contrastMatrix = android.graphics.ColorMatrix(floatArrayOf(
+            contrast, 0f, 0f, 0f, brightness,
+            0f, contrast, 0f, 0f, brightness,
+            0f, 0f, contrast, 0f, brightness,
+            0f, 0f, 0f, 1f, 0f
+        ))
+        
+        colorMatrix.postConcat(contrastMatrix)
+        
+        val paint = android.graphics.Paint()
+        paint.colorFilter = android.graphics.ColorMatrixColorFilter(colorMatrix)
+        
+        // Draw the original bitmap into the destination using the contrast/grayscale filter
+        canvas.drawBitmap(src, 0f, 0f, paint)
+        return dest
     }
 }
