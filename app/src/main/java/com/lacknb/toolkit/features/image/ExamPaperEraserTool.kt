@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -684,33 +685,18 @@ class ExamPaperEraserTool : Tool {
                                 .background(Color(0xFF0F0F0F))
                                 .border(1.dp, Color(0xFF2E2E2E), RoundedCornerShape(12.dp))
                                 .onGloballyPositioned { layoutCoordinates ->
-                                    canvasSizeState.value = Offset(
-                                        layoutCoordinates.size.width.toFloat(),
-                                        layoutCoordinates.size.height.toFloat()
-                                    )
+                                    if (currentMode == EraserMode.SPLIT_SLIDER) {
+                                        canvasSizeState.value = Offset(
+                                            layoutCoordinates.size.width.toFloat(),
+                                            layoutCoordinates.size.height.toFloat()
+                                        )
+                                    }
                                 }
                                 .pointerInput(currentMode, selectedPreviewIndex) {
                                     if (currentMode == EraserMode.SPLIT_SLIDER) {
                                         detectDragGestures { change, _ ->
                                             sliderRatio = (change.position.x / canvasSizeState.value.x).coerceIn(0f, 1f)
                                         }
-                                    } else {
-                                        detectDragGestures(
-                                            onDragStart = { offset ->
-                                                activeBrushPoint = offset
-                                            },
-                                            onDrag = { change, _ ->
-                                                val start = activeBrushPoint
-                                                val end = change.position
-                                                if (start != null) {
-                                                    applyBrushEraserToBitmapPage(start, end)
-                                                }
-                                                activeBrushPoint = end
-                                            },
-                                            onDragEnd = {
-                                                activeBrushPoint = null
-                                            }
-                                        )
                                     }
                                 }
                         ) {
@@ -759,17 +745,80 @@ class ExamPaperEraserTool : Tool {
                                             image = cleanImg.asImageBitmap(),
                                             dstSize = androidx.compose.ui.unit.IntSize(w.toInt(), h.toInt())
                                         )
-                                        activeBrushPoint?.let { touchPoint ->
-                                            drawCircle(
-                                                color = Color(0xFF00B0FF).copy(alpha = 0.3f),
-                                                radius = 24.dp.toPx(),
-                                                center = touchPoint
-                                            )
-                                            drawCircle(
-                                                color = Color(0xFF00B0FF),
-                                                radius = 3.dp.toPx(),
-                                                center = touchPoint
-                                            )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (currentMode == EraserMode.MAGIC_BRUSH) {
+                            androidx.compose.ui.window.Dialog(
+                                onDismissRequest = { currentMode = EraserMode.SPLIT_SLIDER },
+                                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize().background(Color(0xFF0F0F0F))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(onClick = { currentMode = EraserMode.SPLIT_SLIDER }) {
+                                            Icon(Icons.Default.ArrowBack, contentDescription = "Close", tint = Color.White)
+                                        }
+                                        Text("魔法画笔 (全屏擦除)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                        Spacer(modifier = Modifier.width(48.dp))
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                            .onGloballyPositioned { layoutCoordinates ->
+                                                canvasSizeState.value = Offset(
+                                                    layoutCoordinates.size.width.toFloat(),
+                                                    layoutCoordinates.size.height.toFloat()
+                                                )
+                                            }
+                                            .pointerInput(selectedPreviewIndex) {
+                                                detectDragGestures(
+                                                    onDragStart = { offset ->
+                                                        activeBrushPoint = offset
+                                                    },
+                                                    onDrag = { change, _ ->
+                                                        val start = activeBrushPoint
+                                                        val end = change.position
+                                                        if (start != null) {
+                                                            applyBrushEraserToBitmapPage(start, end)
+                                                        }
+                                                        activeBrushPoint = end
+                                                    },
+                                                    onDragEnd = {
+                                                        activeBrushPoint = null
+                                                    }
+                                                )
+                                            }
+                                    ) {
+                                        ComposeCanvas(modifier = Modifier.fillMaxSize()) {
+                                            val cleanImg = processedBitmaps.getOrNull(selectedPreviewIndex)
+                                            if (cleanImg != null) {
+                                                drawImage(
+                                                    image = cleanImg.asImageBitmap(),
+                                                    dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt())
+                                                )
+                                                activeBrushPoint?.let { touchPoint ->
+                                                    drawCircle(
+                                                        color = Color(0xFF00B0FF).copy(alpha = 0.3f),
+                                                        radius = 24.dp.toPx(),
+                                                        center = touchPoint
+                                                    )
+                                                    drawCircle(
+                                                        color = Color(0xFF00B0FF),
+                                                        radius = 3.dp.toPx(),
+                                                        center = touchPoint
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
