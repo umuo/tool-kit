@@ -44,6 +44,10 @@ android {
     }
 }
 
+base {
+    archivesName.set("toolkit-v1.0")
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
