@@ -3,13 +3,15 @@ package com.lacknb.toolkit.core
 import com.lacknb.toolkit.features.image.ImageToTextTool
 import com.lacknb.toolkit.features.image.PhotoToElectronicDocTool
 import com.lacknb.toolkit.features.image.ExamPaperEraserTool
+import com.lacknb.toolkit.features.system.AboutAppTool
 
 object ToolRegistry {
     val allTools: List<Tool> by lazy {
         listOf(
             ImageToTextTool(),
             PhotoToElectronicDocTool(),
-            ExamPaperEraserTool()
+            ExamPaperEraserTool(),
+            AboutAppTool()
         )
     }
 
