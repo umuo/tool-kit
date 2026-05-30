@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.sp
 import com.lacknb.toolkit.core.Tool
 import com.lacknb.toolkit.core.ToolCategory
 import com.lacknb.toolkit.ui.screens.ToolWorkspaceContainer
+import androidx.core.content.FileProvider
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -124,6 +126,7 @@ class ExamPaperEraserTool : Tool {
         val dragIndex = dragIndexState.value
         val canvasSize = canvasSizeState.value
         var activeBrushPoint by remember { mutableStateOf<Offset?>(null) }
+        var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
         LaunchedEffect(rawBitmaps.size) {
             if (rawBitmaps.isNotEmpty()) {
@@ -250,6 +253,48 @@ class ExamPaperEraserTool : Tool {
             }
         }
 
+        // Camera Capture Launcher
+        val cameraLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicture()
+        ) { success ->
+            if (success) {
+                tempCameraUri?.let { uri ->
+                    try {
+                        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            val source = ImageDecoder.createSource(context.contentResolver, uri)
+                            ImageDecoder.decodeBitmap(source)
+                        } else {
+                            MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                        }
+                        rawBitmaps.add(bitmap.copy(Bitmap.Config.ARGB_8888, true))
+                        croppedBitmaps.clear()
+                        processedBitmaps.clear()
+                        activeTab = 0
+                        selectedPreviewIndex = rawBitmaps.size - 1
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "拍照解析失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
+        val launchCamera = {
+            try {
+                val tempFile = File(context.cacheDir, "eraser_photo_${System.currentTimeMillis()}.jpg")
+                if (tempFile.exists()) tempFile.delete()
+                tempFile.createNewFile()
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "com.lacknb.toolkit.fileprovider",
+                    tempFile
+                )
+                tempCameraUri = uri
+                cameraLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "拉起相机失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         val applyBrushEraserToBitmapPage = { start: Offset, end: Offset ->
             val activeBitmap = processedBitmaps.getOrNull(selectedPreviewIndex)
             if (activeBitmap != null && canvasSize != Offset.Zero) {
@@ -349,46 +394,92 @@ class ExamPaperEraserTool : Tool {
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    Card(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                batchPhotoPickerLauncher.launch(
-                                    androidx.activity.result.PickVisualMediaRequest(
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly
-                                    )
+                            .padding(bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Camera Card
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { launchCamera() }
+                                .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                            border = BorderStroke(1.dp, Color(0xFF2E2E2E)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color(0xFF00E676),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "直接拍照",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "拍一张试卷照片",
+                                    color = Color.Gray,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
-                            .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp)),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                        border = BorderStroke(1.dp, Color(0xFF2E2E2E)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
+                        }
+
+                        // Album Card
+                        Card(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(36.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .weight(1f)
+                                .clickable {
+                                    batchPhotoPickerLauncher.launch(
+                                        androidx.activity.result.PickVisualMediaRequest(
+                                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                                        )
+                                    )
+                                }
+                                .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                            border = BorderStroke(1.dp, Color(0xFF2E2E2E)),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.CloudUpload,
-                                contentDescription = null,
-                                tint = Color(0xFF00E676),
-                                modifier = Modifier.size(56.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "从相册批量选择多页手写试卷照片",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "支持自动矫正，然后识别蓝色、黑色手写答题字迹一键滤除还原",
-                                color = Color.Gray,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudUpload,
+                                    contentDescription = null,
+                                    tint = Color(0xFF00E676),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "从相册选择",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "批量选择多页试卷",
+                                    color = Color.Gray,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
                         }
                     }
                 } else {
@@ -406,6 +497,15 @@ class ExamPaperEraserTool : Tool {
                             fontWeight = FontWeight.Bold
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "拍照",
+                                color = Color(0xFF00E676),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    if (!isProcessing) launchCamera()
+                                }
+                            )
                             Text(
                                 text = "添加试卷",
                                 color = Color(0xFF00E676),

@@ -64,6 +64,8 @@ import androidx.compose.ui.unit.sp
 import com.lacknb.toolkit.core.Tool
 import com.lacknb.toolkit.core.ToolCategory
 import com.lacknb.toolkit.ui.screens.ToolWorkspaceContainer
+import androidx.core.content.FileProvider
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,6 +114,7 @@ class PhotoToElectronicDocTool : Tool {
         var activeTab by remember { mutableStateOf(0) } // 0: 批量切边, 1: 效果与合并导出
 
         var selectedPreviewIndex by remember { mutableStateOf(0) }
+        var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
         val dragIndexState = remember { mutableStateOf(-1) }
         val canvasSizeState = remember { mutableStateOf(Offset.Zero) }
         val dragIndex = dragIndexState.value
@@ -156,6 +159,47 @@ class PhotoToElectronicDocTool : Tool {
                 } catch (e: Exception) {
                     Toast.makeText(context, "加载图片失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
+            }
+        }
+
+        // Camera Capture Launcher
+        val cameraLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicture()
+        ) { success ->
+            if (success) {
+                tempCameraUri?.let { uri ->
+                    try {
+                        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            val source = ImageDecoder.createSource(context.contentResolver, uri)
+                            ImageDecoder.decodeBitmap(source)
+                        } else {
+                            MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                        }
+                        selectedBitmaps.add(bitmap.copy(Bitmap.Config.ARGB_8888, true))
+                        croppedBitmaps.clear()
+                        activeTab = 0
+                        selectedPreviewIndex = selectedBitmaps.size - 1
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "拍照解析失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
+        val launchCamera = {
+            try {
+                val tempFile = File(context.cacheDir, "doc_photo_${System.currentTimeMillis()}.jpg")
+                if (tempFile.exists()) tempFile.delete()
+                tempFile.createNewFile()
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "com.lacknb.toolkit.fileprovider",
+                    tempFile
+                )
+                tempCameraUri = uri
+                cameraLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "拉起相机失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -312,50 +356,96 @@ class PhotoToElectronicDocTool : Tool {
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    Card(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                batchPhotoPickerLauncher.launch(
-                                    androidx.activity.result.PickVisualMediaRequest(
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly
-                                    )
+                            .padding(bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Camera Card
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { launchCamera() }
+                                .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                            border = BorderStroke(1.dp, Color(0xFF2E2E2E)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFF9800),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "直接拍照",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "拍一张文档照片",
+                                    color = Color.Gray,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
-                            .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp)),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                        border = BorderStroke(1.dp, Color(0xFF2E2E2E)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
+                        }
+
+                        // Album Card
+                        Card(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(36.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .weight(1f)
+                                .clickable {
+                                    batchPhotoPickerLauncher.launch(
+                                        androidx.activity.result.PickVisualMediaRequest(
+                                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                                        )
+                                    )
+                                }
+                                .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                            border = BorderStroke(1.dp, Color(0xFF2E2E2E)),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AddPhotoAlternate,
-                                contentDescription = null,
-                                tint = Color(0xFFFF9800),
-                                modifier = Modifier.size(56.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "从相册批量选择多张照片底图",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "支持多张书本内页、合同单证、单据名片合并切片",
-                                color = Color.Gray,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFF9800),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "从相册选择",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "批量选择多张照片",
+                                    color = Color.Gray,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Try with sample document option
                     OutlinedButton(
@@ -394,6 +484,15 @@ class PhotoToElectronicDocTool : Tool {
                             fontWeight = FontWeight.Bold
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "拍照",
+                                color = Color(0xFFFF9800),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    if (!isProcessing) launchCamera()
+                                }
+                            )
                             Text(
                                 text = "添加图片",
                                 color = Color(0xFFFF9800),
