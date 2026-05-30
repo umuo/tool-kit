@@ -445,29 +445,6 @@ class PhotoToElectronicDocTool : Tool {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Try with sample document option
-                    OutlinedButton(
-                        onClick = {
-                            selectedBitmaps.add(createSampleTiltedBitmap(0))
-                            selectedBitmaps.add(createSampleTiltedBitmap(1))
-                            croppedBitmaps.clear()
-                            activeTab = 0
-                            selectedPreviewIndex = 0
-                            Toast.makeText(context, "已为您载入 2 张倾斜合同测试图组！", Toast.LENGTH_LONG).show()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        border = BorderStroke(1.dp, Color(0xFFFF9800)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF9800)),
-                        shape = RoundedCornerShape(24.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Science, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "载入预设批量倾斜合同测试图组", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
                 } else {
                     // Toolbar
                     Row(
@@ -792,7 +769,7 @@ class PhotoToElectronicDocTool : Tool {
                             ) {
                                 Icon(imageVector = Icons.Default.Crop, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "顺次裁切所有页面 (${selectedBitmaps.size}页)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "下一步 (${selectedBitmaps.size}页)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else {
