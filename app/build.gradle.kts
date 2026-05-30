@@ -15,8 +15,8 @@ android {
         applicationId = "com.lacknb.toolkit"
         minSdk = 34
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
@@ -45,7 +45,7 @@ android {
 }
 
 base {
-    archivesName.set("toolkit-v1.1")
+    archivesName.set("toolkit-v1.1.1")
 }
 
 dependencies {

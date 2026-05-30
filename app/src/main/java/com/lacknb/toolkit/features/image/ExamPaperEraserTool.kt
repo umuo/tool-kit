@@ -235,19 +235,14 @@ class ExamPaperEraserTool : Tool {
             if (uris.isNotEmpty()) {
                 try {
                     uris.forEach { uri ->
-                        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            val source = ImageDecoder.createSource(context.contentResolver, uri)
-                            ImageDecoder.decodeBitmap(source)
-                        } else {
-                            MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-                        }
-                        rawBitmaps.add(bitmap.copy(Bitmap.Config.ARGB_8888, true))
+                        val bitmap = getScaledBitmap(context, uri)
+                        rawBitmaps.add(bitmap)
                     }
                     croppedBitmaps.clear()
                     processedBitmaps.clear()
                     activeTab = 0
                     selectedPreviewIndex = rawBitmaps.size - uris.size
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     Toast.makeText(context, "批量导入失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -260,18 +255,13 @@ class ExamPaperEraserTool : Tool {
             if (success) {
                 tempCameraUri?.let { uri ->
                     try {
-                        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            val source = ImageDecoder.createSource(context.contentResolver, uri)
-                            ImageDecoder.decodeBitmap(source)
-                        } else {
-                            MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-                        }
-                        rawBitmaps.add(bitmap.copy(Bitmap.Config.ARGB_8888, true))
+                        val bitmap = getScaledBitmap(context, uri)
+                        rawBitmaps.add(bitmap)
                         croppedBitmaps.clear()
                         processedBitmaps.clear()
                         activeTab = 0
                         selectedPreviewIndex = rawBitmaps.size - 1
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         Toast.makeText(context, "拍照解析失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -1387,5 +1377,31 @@ class ExamPaperEraserTool : Tool {
 
         canvas.restore()
         return bitmap
+    }
+
+    private fun getScaledBitmap(context: Context, uri: Uri, maxDimension: Int = 1536): Bitmap {
+        val originalBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
+            android.graphics.ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+                val max = Math.max(info.size.width, info.size.height)
+                if (max > maxDimension) {
+                    val scale = maxDimension.toFloat() / max
+                    decoder.setTargetSize((info.size.width * scale).toInt(), (info.size.height * scale).toInt())
+                }
+                decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+            }
+        } else {
+            val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+            val max = Math.max(bitmap.width, bitmap.height)
+            if (max > maxDimension) {
+                val scale = maxDimension.toFloat() / max
+                val scaled = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+                if (scaled != bitmap) bitmap.recycle()
+                scaled
+            } else {
+                bitmap
+            }
+        }
+        return originalBitmap.copy(Bitmap.Config.ARGB_8888, true) ?: originalBitmap
     }
 }
