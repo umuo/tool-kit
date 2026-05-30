@@ -105,7 +105,7 @@ class AboutAppTool : Tool {
                 Column(modifier = Modifier.padding(16.dp)) {
                     InfoRow(label = "作者", value = "umuo")
                     Divider(color = Color(0xFF2E2E2E), modifier = Modifier.padding(vertical = 12.dp))
-                    InfoRow(label = "邮箱", value = "contact@umuo.com") // Placeholder email if any
+                    InfoRow(label = "邮箱", value = "gitsilence@gmail.com")
                     Divider(color = Color(0xFF2E2E2E), modifier = Modifier.padding(vertical = 12.dp))
                     InfoRow(label = "描述", value = "高保真图像扫描与日常工具箱")
                 }
